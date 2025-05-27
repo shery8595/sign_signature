@@ -155,7 +155,7 @@
 
     // Twitter/X OAuth 2.0 with PKCE
     const clientId = 'UUY5SENHNllHejJZeU1vVlNlSjM6MTpjaQ'; // Replace with your Twitter Client ID
-    const redirectUri = 'https://sign-signature-e8td-bmrb3fbjo-shery8595s-projects.vercel.app/api/callback'; // Replace with your Vercel domain
+    const redirectUri = 'https://sign-signature-e8td-bmrb3fbjo-shery8595s-projects.vercel.app/api/callback';
     const scope = 'users.read';
 
     function generateCodeVerifier() {
@@ -180,7 +180,6 @@
 
     async function initiateLogin() {
       const codeVerifier = generateCodeVerifier();
-      localStorage.setItem('code_verifier', codeVerifier);
       const codeChallenge = await generateCodeChallenge(codeVerifier);
       const authUrl = `https://api.twitter.com/2/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&code_challenge=${codeChallenge}&code_challenge_method=S256`;
       window.location.href = authUrl;
@@ -231,8 +230,9 @@
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
       if (code) {
-        // Exchange code for token via serverless function
-        const response = await fetch('/api/callback?code=' + code);
+        // Exchange code for token via serverless function with code_verifier
+        const codeVerifier = localStorage.getItem('code_verifier'); // Retrieve from localStorage
+        const response = await fetch(`/api/callback?code=${code}&code_verifier=${encodeURIComponent(codeVerifier)}`);
         const data = await response.json();
         if (data.access_token) {
           localStorage.setItem('access_token', data.access_token);
@@ -250,8 +250,11 @@
           document.getElementById('signatureCanvas').classList.remove('hidden');
           document.getElementById('saveBtn').classList.remove('hidden');
           document.getElementById('clearBtn').classList.remove('hidden');
-          // Clear URL params
+          // Clear URL params and code_verifier
+          localStorage.removeItem('code_verifier');
           window.history.replaceState({}, document.title, window.location.pathname);
+        } else {
+          console.error('Token exchange failed:', data.error);
         }
       } else if (localStorage.getItem('access_token') && localStorage.getItem('user_data')) {
         const userData = JSON.parse(localStorage.getItem('user_data'));
