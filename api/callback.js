@@ -2,7 +2,7 @@ export default async function handler(req, res) {
   const { code, code_verifier } = req.query;
   const clientId = process.env.TWITTER_CLIENT_ID;
   const clientSecret = process.env.TWITTER_CLIENT_SECRET;
-  const redirectUri = 'https://sign-signature-e8td-bmrb3fbjo-shery8595s-projects.vercel.app/api/callback';
+  const redirectUri = 'https://sign-signature.vercel.app/api/callback';
 
   if (!code || !code_verifier) {
     return res.status(400).json({ error: 'Missing code or code_verifier' });
