@@ -2,7 +2,7 @@ export default async function handler(req, res) {
   const { code } = req.query;
   const clientId = process.env.TWITTER_CLIENT_ID; // Set in Vercel environment variables
   const clientSecret = process.env.TWITTER_CLIENT_SECRET; // Set in Vercel environment variables
-  const redirectUri = 'https://your-project-name.vercel.app/api/callback';
+  const redirectUri = 'https://sign-signature-e8td.vercel.app/api/callback';
   const codeVerifier = req.headers['x-code-verifier'] || localStorage.getItem('code_verifier');
 
   try {
