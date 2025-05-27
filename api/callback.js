@@ -1,23 +1,21 @@
 export default async function handler(req, res) {
   const { code, code_verifier } = req.query;
   const clientId = process.env.TWITTER_CLIENT_ID;
-  const clientSecret = process.env.TWITTER_CLIENT_SECRET;
   const redirectUri = 'https://sign-signature.vercel.app/api/callback';
 
   if (!code || !code_verifier) {
     return res.status(400).json({ error: 'Missing code or code_verifier' });
   }
 
-  if (!clientId || !clientSecret) {
-    return res.status(500).json({ error: 'Missing environment variables' });
+  if (!clientId) {
+    return res.status(500).json({ error: 'Missing TWITTER_CLIENT_ID environment variable' });
   }
 
   try {
     const response = await fetch('https://api.twitter.com/2/oauth2/token', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+        'Content-Type': 'application/x-www-form-urlencoded'
       },
       body: new URLSearchParams({
         code,
@@ -29,12 +27,13 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
-    if (data.access_token) {
-      res.status(200).json({ access_token: data.access_token });
+
+    if (response.ok && data.access_token) {
+      return res.status(200).json({ access_token: data.access_token });
     } else {
-      res.status(400).json({ error: 'Failed to obtain access token', details: data });
+      return res.status(400).json({ error: 'Failed to obtain access token', details: data });
     }
   } catch (error) {
-    res.status(500).json({ error: 'Server error', details: error.message });
+    return res.status(500).json({ error: 'Server error', details: error.message });
   }
 }
