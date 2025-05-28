@@ -28,6 +28,11 @@
       height: 48px;
       border-radius: 50%;
     }
+    .error-message {
+      color: red;
+      font-weight: bold;
+      margin-top: 1rem;
+    }
   </style>
 </head>
 <body class="flex flex-col items-center justify-center p-4">
@@ -52,17 +57,18 @@
         <img id="profilePic" class="profile-pic inline-block mr-2" alt="Profile Picture">
         <span id="username" class="font-semibold"></span>
       </div>
-      <canvas id="signatureCanvas" width="600" height="200" class="w-full mt-4"></canvas>
+      <div id="errorMessage" class="error-message hidden"></div>
+      <canvas id="signatureCanvas" width="600" height="200" class="w-full mt-4 hidden"></canvas>
       <div class="flex gap-4 mt-4">
         <button 
           id="saveBtn" 
-          class="bg-orange-500 text-white font-semibold py-2 px-4 rounded hover:bg-orange-600 transition"
+          class="hidden bg-orange-500 text-white font-semibold py-2 px-4 rounded hover:bg-orange-600 transition"
         >
           Save Signature
         </button>
         <button 
           id="clearBtn" 
-          class="bg-gray-500 text-white font-semibold py-2 px-4 rounded hover:bg-gray-600 transition"
+          class="hidden bg-gray-500 text-white font-semibold py-2 px-4 rounded hover:bg-gray-600 transition"
         >
           Clear
         </button>
@@ -153,36 +159,61 @@
       });
     }
 
-    // Twitter/X OAuth 2.0 with PKCE
-    const clientId = 'UUY5SENHNllHejJZeU1vVlNlSjM6MTpjaQ'; // Replace with your Twitter Client ID
+    // OAuth 2.0 with PKCE
+    // Note: clientId should ideally come from an environment variable or secure API
+    const clientId = 'UUY5SENHNllHejJZeU1vVlNlSjM6MTpjaQ'; // Replace with your Client ID
     const redirectUri = 'https://sign-signature.vercel.app/api/callback';
     const scope = 'users.read';
 
     function generateCodeVerifier() {
       const array = new Uint8Array(32);
       crypto.getRandomValues(array);
-      return btoa(String.fromCharCode.apply(null, array))
+      return btoa(String.fromCharCode(...array))
         .replace(/\+/g, '-')
         .replace(/\//g, '_')
         .replace(/=/g, '');
     }
 
-    function generateCodeChallenge(verifier) {
-      return crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))
-        .then(buffer => {
-          const array = new Uint8Array(buffer);
-          return btoa(String.fromCharCode.apply(null, array))
-            .replace(/\+/g, '-')
-            .replace(/\//g, '_')
-            .replace(/=/g, '');
-        });
+    async function generateCodeChallenge(verifier) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(verifier);
+      const digest = await crypto.subtle.digest('SHA-256', data);
+      return btoa(String.fromCharCode(...new Uint8Array(digest)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
     }
 
     async function initiateLogin() {
-      const codeVerifier = generateCodeVerifier();
-      const codeChallenge = await generateCodeChallenge(codeVerifier);
-      const authUrl = `https://api.twitter.com/2/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&code_challenge=${codeChallenge}&code_challenge_method=S256`;
-      window.location.href = authUrl;
+      try {
+        const codeVerifier = generateCodeVerifier();
+        const codeChallenge = await generateCodeChallenge(codeVerifier);
+        const state = crypto.randomUUID(); // Generate random state for CSRF protection
+
+        // Store codeVerifier and state in localStorage
+        localStorage.setItem('code_verifier', codeVerifier);
+        localStorage.setItem('oauth_state', state);
+
+        const authUrl = `https://api.twitter.com/2/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=S256`;
+        window.location.href = authUrl;
+      } catch (error) {
+        console.error('Error initiating login:', error);
+        showError('Failed to initiate login. Please try again.');
+      }
+    }
+
+    // Show error message
+    function showError(message) {
+      const errorMessage = document.getElementById('errorMessage');
+      errorMessage.textContent = message;
+      errorMessage.classList.remove('hidden');
+    }
+
+    // Clear error message
+    function clearError() {
+      const errorMessage = document.getElementById('errorMessage');
+      errorMessage.textContent = '';
+      errorMessage.classList.add('hidden');
     }
 
     // Handle login button
@@ -192,19 +223,22 @@
     document.getElementById('logoutBtn').addEventListener('click', () => {
       localStorage.removeItem('access_token');
       localStorage.removeItem('user_data');
+      localStorage.removeItem('code_verifier');
+      localStorage.removeItem('oauth_state');
       document.getElementById('loginBtn').classList.remove('hidden');
       document.getElementById('logoutBtn').classList.add('hidden');
       document.getElementById('userInfo').classList.add('hidden');
       document.getElementById('signatureCanvas').classList.add('hidden');
       document.getElementById('saveBtn').classList.add('hidden');
       document.getElementById('clearBtn').classList.add('hidden');
+      clearError();
     });
 
     // Save signature
     document.getElementById('saveBtn').addEventListener('click', () => {
       const userData = JSON.parse(localStorage.getItem('user_data'));
       if (!userData) {
-        alert('Please sign in with Twitter/X first.');
+        showError('Please sign in with Twitter/X first.');
         return;
       }
       const signature = canvas.toDataURL('image/png');
@@ -227,34 +261,67 @@
 
     // Check for access token and fetch user data
     async function checkAuth() {
+      clearError();
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
+      const state = urlParams.get('state');
+
       if (code) {
-        // Exchange code for token via serverless function with code_verifier
-        const codeVerifier = localStorage.getItem('code_verifier'); // Retrieve from localStorage
-        const response = await fetch(`/api/callback?code=${code}&code_verifier=${encodeURIComponent(codeVerifier)}`);
-        const data = await response.json();
-        if (data.access_token) {
-          localStorage.setItem('access_token', data.access_token);
-          // Fetch user data
-          const userResponse = await fetch('https://api.twitter.com/2/users/me?user.fields=profile_image_url', {
-            headers: { 'Authorization': `Bearer ${data.access_token}` }
-          });
-          const userData = await userResponse.json();
-          localStorage.setItem('user_data', JSON.stringify(userData.data));
-          document.getElementById('loginBtn').classList.add('hidden');
-          document.getElementById('logoutBtn').classList.remove('hidden');
-          document.getElementById('userInfo').classList.remove('hidden');
-          document.getElementById('profilePic').src = userData.data.profile_image_url;
-          document.getElementById('username').textContent = userData.data.username;
-          document.getElementById('signatureCanvas').classList.remove('hidden');
-          document.getElementById('saveBtn').classList.remove('hidden');
-          document.getElementById('clearBtn').classList.remove('hidden');
-          // Clear URL params and code_verifier
-          localStorage.removeItem('code_verifier');
-          window.history.replaceState({}, document.title, window.location.pathname);
-        } else {
-          console.error('Token exchange failed:', data.error);
+        // Validate state to prevent CSRF
+        const storedState = localStorage.getItem('oauth_state');
+        if (!state || state !== storedState) {
+          showError('Invalid state parameter. Possible CSRF attack.');
+          console.error('State mismatch:', { received: state, expected: storedState });
+          return;
+        }
+
+        // Exchange code for token
+        const codeVerifier = localStorage.getItem('code_verifier');
+        if (!codeVerifier) {
+          showError('Code verifier missing. Please try signing in again.');
+          console.error('No code_verifier found in localStorage');
+          return;
+        }
+
+        try {
+          const response = await fetch(`/api/callback?code=${encodeURIComponent(code)}&code_verifier=${encodeURIComponent(codeVerifier)}&state=${encodeURIComponent(state)}`);
+          const data = await response.json();
+          console.log('Token exchange response:', data);
+
+          if (data.access_token) {
+            localStorage.setItem('access_token', data.access_token);
+            // Fetch user data
+            const userResponse = await fetch('https://api.twitter.com/2/users/me?user.fields=profile_image_url', {
+              headers: { 'Authorization': `Bearer ${data.access_token}` }
+            });
+            const userData = await userResponse.json();
+            console.log('User data response:', userData);
+
+            if (userData.data) {
+              localStorage.setItem('user_data', JSON.stringify(userData.data));
+              document.getElementById('loginBtn').classList.add('hidden');
+              document.getElementById('logoutBtn').classList.remove('hidden');
+              document.getElementById('userInfo').classList.remove('hidden');
+              document.getElementById('profilePic').src = userData.data.profile_image_url;
+              document.getElementById('username').textContent = userData.data.username;
+              document.getElementById('signatureCanvas').classList.remove('hidden');
+              document.getElementById('saveBtn').classList.remove('hidden');
+              document.getElementById('clearBtn').classList.remove('hidden');
+              // Clean up
+              localStorage.removeItem('code_verifier');
+              localStorage.removeItem('oauth_state');
+              window.history.replaceState({}, document.title, window.location.pathname);
+            } else {
+              showError(`Failed to fetch user data: ${userData.errors?.[0]?.message || 'Unknown error'}`);
+              console.error('User data fetch failed:', userData);
+            }
+          } else {
+            showError(`Token exchange failed: ${data.details || data.error || 'Unknown error'}`);
+            console.error('Token exchange failed:', data);
+          }
+        } catch (error) {
+          showError('Error during authentication. Please try again.');
+          console.error('Authentication error:', error);
         }
       } else if (localStorage.getItem('access_token') && localStorage.getItem('user_data')) {
         const userData = JSON.parse(localStorage.getItem('user_data'));
