@@ -88,7 +88,7 @@
     let lastX = 0;
     let lastY = 0;
 
-    // Canvas drawing setup with orange ink
+    // Canvas drawing setup
     ctx.strokeStyle = '#f97316';
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
@@ -160,7 +160,6 @@
     }
 
     // OAuth 2.0 with PKCE
-    // Note: clientId should ideally come from an environment variable or secure API
     const clientId = 'UUY5SENHNllHejJZeU1vVlNlSjM6MTpjaQ'; // Replace with your Client ID
     const redirectUri = 'https://sign-signature.vercel.app/api/callback';
     const scope = 'users.read';
@@ -188,11 +187,13 @@
       try {
         const codeVerifier = generateCodeVerifier();
         const codeChallenge = await generateCodeChallenge(codeVerifier);
-        const state = crypto.randomUUID(); // Generate random state for CSRF protection
+        const state = crypto.randomUUID(); // CSRF protection
 
-        // Store codeVerifier and state in localStorage
+        // Store code_verifier and state
         localStorage.setItem('code_verifier', codeVerifier);
         localStorage.setItem('oauth_state', state);
+
+        console.log('Initiating login with:', { clientId, redirectUri, scope, codeVerifier, state });
 
         const authUrl = `https://api.twitter.com/2/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=S256`;
         window.location.href = authUrl;
@@ -202,14 +203,12 @@
       }
     }
 
-    // Show error message
     function showError(message) {
       const errorMessage = document.getElementById('errorMessage');
       errorMessage.textContent = message;
       errorMessage.classList.remove('hidden');
     }
 
-    // Clear error message
     function clearError() {
       const errorMessage = document.getElementById('errorMessage');
       errorMessage.textContent = '';
@@ -259,7 +258,7 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     });
 
-    // Check for access token and fetch user data
+    // Check authentication
     async function checkAuth() {
       clearError();
       const urlParams = new URLSearchParams(window.location.search);
@@ -267,7 +266,7 @@
       const state = urlParams.get('state');
 
       if (code) {
-        // Validate state to prevent CSRF
+        // Validate state
         const storedState = localStorage.getItem('oauth_state');
         if (!state || state !== storedState) {
           showError('Invalid state parameter. Possible CSRF attack.');
@@ -284,18 +283,21 @@
         }
 
         try {
+          console.log('Exchanging code for token:', { code, codeVerifier, state });
           const response = await fetch(`/api/callback?code=${encodeURIComponent(code)}&code_verifier=${encodeURIComponent(codeVerifier)}&state=${encodeURIComponent(state)}`);
           const data = await response.json();
-          console.log('Token exchange response:', data);
+          console.log('Token exchange response:', JSON.stringify(data, null, 2));
 
           if (data.access_token) {
             localStorage.setItem('access_token', data.access_token);
             // Fetch user data
+            console.log('Fetching user data with access_token:', data.access_token);
             const userResponse = await fetch('https://api.twitter.com/2/users/me?user.fields=profile_image_url', {
               headers: { 'Authorization': `Bearer ${data.access_token}` }
             });
             const userData = await userResponse.json();
-            console.log('User data response:', userData);
+            console.log('User data response:', JSON.stringify(userData, null, 2));
+            console.log('User data status:', userResponse.status, userResponse.statusText);
 
             if (userData.data) {
               localStorage.setItem('user_data', JSON.stringify(userData.data));
@@ -312,16 +314,22 @@
               localStorage.removeItem('oauth_state');
               window.history.replaceState({}, document.title, window.location.pathname);
             } else {
-              showError(`Failed to fetch user data: ${userData.errors?.[0]?.message || 'Unknown error'}`);
+              showError(`Failed to fetch user data: ${userData.errors?.[0]?.message || userData.error || 'Unknown error'} (Code: ${userData.errors?.[0]?.code || userResponse.status})`);
               console.error('User data fetch failed:', userData);
             }
           } else {
-            showError(`Token exchange failed: ${data.details || data.error || 'Unknown error'}`);
+            showError(`Token exchange failed: ${data.details || data.error || 'Unknown error'} (Code: ${data.code || 'N/A'})`);
             console.error('Token exchange failed:', data);
           }
         } catch (error) {
-          showError('Error during authentication. Please try again.');
-          console.error('Authentication error:', error);
+          showError('Authentication error. Please try again.');
+          console.error('Authentication error:', {
+            message: error.message,
+            stack: error.stack,
+            code,
+            codeVerifier,
+            state
+          });
         }
       } else if (localStorage.getItem('access_token') && localStorage.getItem('user_data')) {
         const userData = JSON.parse(localStorage.getItem('user_data'));
