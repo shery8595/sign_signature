@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" >
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sign Signature</title>
   <style>
     body {
@@ -39,34 +39,36 @@
 </head>
 <body>
   <h1>Sign Your Signature</h1>
-  <button onclick="connectTwitter()">Connect Twitter</button>
+  <button id="connectBtn">Connect Twitter</button>
   <div id="profile"></div>
 
-  <canvas id="canvas" width="400" height="150"></canvas>
-  <br />
+  <canvas id="canvas" width="400" height="150"></canvas><br />
   <button id="saveBtn">Save Signature</button>
 
   <script>
     const clientId = "UUY5SENHNllHejJZeU1vVlNlSjM6MTpjaQ";
     const redirectUri = "https://sign-signature.vercel.app/api/callback";
-    const state = crypto.randomUUID();
-    const codeVerifier = generateRandomString(64);
-    localStorage.setItem("code_verifier", codeVerifier);
 
-    function connectTwitter() {
-      generateCodeChallenge(codeVerifier).then(codeChallenge => {
-        const authUrl = new URL("https://twitter.com/i/oauth2/authorize");
+    async function connectTwitter() {
+      const codeVerifier = generateRandomString(64);
+      const csrfToken = crypto.randomUUID();
+      const stateObj = { csrf: csrfToken, codeVerifier };
+      const state = btoa(JSON.stringify(stateObj));
 
-        authUrl.searchParams.set("response_type", "code");
-        authUrl.searchParams.set("client_id", clientId);
-        authUrl.searchParams.set("redirect_uri", redirectUri);
-        authUrl.searchParams.set("scope", "tweet.read users.read");
-        authUrl.searchParams.set("state", state);
-        authUrl.searchParams.set("code_challenge", codeChallenge);
-        authUrl.searchParams.set("code_challenge_method", "S256");
+      localStorage.setItem("csrf", csrfToken);
 
-        window.location.href = authUrl.toString();
-      });
+      const codeChallenge = await generateCodeChallenge(codeVerifier);
+
+      const authUrl = new URL("https://twitter.com/i/oauth2/authorize");
+      authUrl.searchParams.set("response_type", "code");
+      authUrl.searchParams.set("client_id", clientId);
+      authUrl.searchParams.set("redirect_uri", redirectUri);
+      authUrl.searchParams.set("scope", "tweet.read users.read");
+      authUrl.searchParams.set("state", state);
+      authUrl.searchParams.set("code_challenge", codeChallenge);
+      authUrl.searchParams.set("code_challenge_method", "S256");
+
+      window.location.href = authUrl.toString();
     }
 
     function generateRandomString(length) {
@@ -85,16 +87,7 @@
         .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
 
-    // Parse profile from URL (after redirect)
-    const params = new URLSearchParams(window.location.search);
-    const name = params.get("name");
-    const pfp = params.get("pfp");
-    if (name && pfp) {
-      document.getElementById("profile").innerHTML = `
-        <h2>Welcome, ${name}</h2>
-        <img src="${pfp}" alt="Profile Picture" />
-      `;
-    }
+    document.getElementById("connectBtn").addEventListener("click", connectTwitter);
 
     // Drawing on canvas
     const canvas = document.getElementById("canvas");
@@ -102,8 +95,14 @@
     let drawing = false;
 
     canvas.addEventListener("mousedown", () => drawing = true);
-    canvas.addEventListener("mouseup", () => drawing = false);
-    canvas.addEventListener("mouseout", () => drawing = false);
+    canvas.addEventListener("mouseup", () => {
+      drawing = false;
+      ctx.beginPath();
+    });
+    canvas.addEventListener("mouseout", () => {
+      drawing = false;
+      ctx.beginPath();
+    });
     canvas.addEventListener("mousemove", draw);
 
     function draw(e) {
@@ -122,7 +121,6 @@
       ctx.moveTo(x, y);
     }
 
-    // Save signature
     document.getElementById("saveBtn").addEventListener("click", () => {
       const image = canvas.toDataURL("image/png");
       const link = document.createElement("a");
