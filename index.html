@@ -1,54 +1,140 @@
 <!DOCTYPE html>
-<html lang="en" >
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sign Signature</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body {
-      background: linear-gradient(to right, #ffa500, #ffff66);
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 2rem;
+      background: linear-gradient(to bottom, #f97316, #facc15);
+      min-height: 100vh;
+      font-family: 'Arial', sans-serif;
     }
-    h1 {
-      color: #333;
+    .signature-card {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
-    #profile {
-      margin-top: 1rem;
-    }
-    #profile img {
-      border-radius: 50%;
-      width: 100px;
-      height: 100px;
-    }
-    #canvas {
-      border: 2px solid #333;
-      margin-top: 2rem;
+    canvas {
+      border: 2px solid #f97316;
+      background: white;
+      border-radius: 4px;
       cursor: crosshair;
     }
-    #saveBtn {
-      margin-top: 1rem;
-      padding: 0.5rem 1rem;
-      background-color: #ffcc00;
-      border: none;
-      font-weight: bold;
-      cursor: pointer;
+    .profile-pic {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
     }
   </style>
 </head>
-<body>
-  <h1>Sign Your Signature</h1>
-  <button id="connectBtn">Connect Twitter</button>
-  <div id="profile"></div>
+<body class="flex flex-col items-center justify-center p-4">
+  <div class="max-w-2xl w-full text-center">
+    <h1 class="text-4xl font-bold text-white mb-6">Sign Your Signature</h1>
+    <p class="text-lg text-white mb-8">Sign in with Twitter/X to draw your signature!</p>
 
-  <canvas id="canvas" width="400" height="150"></canvas><br />
-  <button id="saveBtn">Save Signature</button>
+    <div id="auth-section" class="bg-white rounded-lg shadow-lg p-6 mb-8">
+      <button 
+        id="connectBtn" 
+        class="bg-blue-500 text-white font-semibold py-2 px-4 rounded hover:bg-blue-600 transition"
+      >
+        Connect Twitter/X
+      </button>
+      <button 
+        id="logoutBtn" 
+        class="hidden bg-gray-500 text-white font-semibold py-2 px-4 rounded hover:bg-gray-600 transition"
+      >
+        Sign Out
+      </button>
+      <div id="profile" class="hidden mt-4">
+        <img id="profilePic" class="profile-pic inline-block mr-2" alt="Profile Picture">
+        <span id="username" class="font-semibold"></span>
+      </div>
+      <canvas id="canvas" width="600" height="200" class="w-full mt-4"></canvas>
+      <div class="flex gap-4 mt-4">
+        <button 
+          id="saveBtn" 
+          class="bg-orange-500 text-white font-semibold py-2 px-4 rounded hover:bg-orange-600 transition"
+        >
+          Save Signature
+        </button>
+        <button 
+          id="clearBtn" 
+          class="bg-gray-500 text-white font-semibold py-2 px-4 rounded hover:bg-gray-600 transition"
+        >
+          Clear
+        </button>
+      </div>
+    </div>
+
+    <div id="signatures" class="mt-8">
+      <h2 class="text-2xl font-semibold text-white mb-4">Signatures</h2>
+      <div id="signature-list" class="grid grid-cols-1 gap-4"></div>
+    </div>
+  </div>
 
   <script>
     const clientId = "UUY5SENHNllHejJZeU1vVlNlSjM6MTpjaQ";
     const redirectUri = "https://sign-signature.vercel.app/api/callback";
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    let drawing = false;
+    let lastX = 0;
+    let lastY = 0;
 
+    // Canvas drawing setup with orange ink
+    ctx.strokeStyle = "#f97316";
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+
+    // Mouse events
+    canvas.addEventListener("mousedown", startDrawing);
+    canvas.addEventListener("mousemove", draw);
+    canvas.addEventListener("mouseup", stopDrawing);
+    canvas.addEventListener("mouseout", stopDrawing);
+
+    // Touch events
+    canvas.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      startDrawing({ clientX: touch.clientX, clientY: touch.clientY });
+    });
+    canvas.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      draw({ clientX: touch.clientX, clientY: touch.clientY });
+    });
+    canvas.addEventListener("touchend", stopDrawing);
+
+    function startDrawing(e) {
+      drawing = true;
+      const rect = canvas.getBoundingClientRect();
+      lastX = e.clientX - rect.left;
+      lastY = e.clientY - rect.top;
+    }
+
+    function draw(e) {
+      if (!drawing) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      lastX = x;
+      lastY = y;
+    }
+
+    function stopDrawing() {
+      drawing = false;
+    }
+
+    // Twitter OAuth 2.0 with PKCE
     async function connectTwitter() {
       const codeVerifier = generateRandomString(64);
       const csrfToken = crypto.randomUUID();
@@ -56,6 +142,7 @@
       const state = btoa(JSON.stringify(stateObj));
 
       localStorage.setItem("csrf", csrfToken);
+      localStorage.setItem("code_verifier", codeVerifier);
 
       const codeChallenge = await generateCodeChallenge(codeVerifier);
 
@@ -87,47 +174,107 @@
         .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
 
-    document.getElementById("connectBtn").addEventListener("click", connectTwitter);
-
-    // Drawing on canvas
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
-    let drawing = false;
-
-    canvas.addEventListener("mousedown", () => drawing = true);
-    canvas.addEventListener("mouseup", () => {
-      drawing = false;
-      ctx.beginPath();
-    });
-    canvas.addEventListener("mouseout", () => {
-      drawing = false;
-      ctx.beginPath();
-    });
-    canvas.addEventListener("mousemove", draw);
-
-    function draw(e) {
-      if (!drawing) return;
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-
-      ctx.lineWidth = 2;
-      ctx.lineCap = "round";
-      ctx.strokeStyle = "black";
-
-      ctx.lineTo(x, y);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(x, y);
+    // Handle authentication callback
+    async function checkAuth() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get("code");
+      const state = urlParams.get("state");
+      if (code && state) {
+        const stateObj = JSON.parse(atob(state));
+        if (stateObj.csrf !== localStorage.getItem("csrf")) {
+          console.error("CSRF token mismatch");
+          return;
+        }
+        const codeVerifier = localStorage.getItem("code_verifier");
+        const response = await fetch(`/api/callback?code=${code}&code_verifier=${encodeURIComponent(codeVerifier)}`);
+        const data = await response.json();
+        if (data.access_token) {
+          localStorage.setItem("access_token", data.access_token);
+          const userResponse = await fetch("https://api.twitter.com/2/users/me?user.fields=profile_image_url", {
+            headers: { Authorization: `Bearer ${data.access_token}` }
+          });
+          const userData = await userResponse.json();
+          localStorage.setItem("user_data", JSON.stringify(userData.data));
+          document.getElementById("connectBtn").classList.add("hidden");
+          document.getElementById("logoutBtn").classList.remove("hidden");
+          document.getElementById("profile").classList.remove("hidden");
+          document.getElementById("profilePic").src = userData.data.profile_image_url;
+          document.getElementById("username").textContent = userData.data.username;
+          document.getElementById("canvas").classList.remove("hidden");
+          document.getElementById("saveBtn").classList.remove("hidden");
+          document.getElementById("clearBtn").classList.remove("hidden");
+          localStorage.removeItem("csrf");
+          localStorage.removeItem("code_verifier");
+          window.history.replaceState({}, document.title, window.location.pathname);
+        } else {
+          console.error("Token exchange failed:", data.error);
+        }
+      } else if (localStorage.getItem("access_token") && localStorage.getItem("user_data")) {
+        const userData = JSON.parse(localStorage.getItem("user_data"));
+        document.getElementById("connectBtn").classList.add("hidden");
+        document.getElementById("logoutBtn").classList.remove("hidden");
+        document.getElementById("profile").classList.remove("hidden");
+        document.getElementById("profilePic").src = userData.profile_image_url;
+        document.getElementById("username").textContent = userData.username;
+        document.getElementById("canvas").classList.remove("hidden");
+        document.getElementById("saveBtn").classList.remove("hidden");
+        document.getElementById("clearBtn").classList.remove("hidden");
+      }
     }
 
+    // Handle logout
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("user_data");
+      document.getElementById("connectBtn").classList.remove("hidden");
+      document.getElementById("logoutBtn").classList.add("hidden");
+      document.getElementById("profile").classList.add("hidden");
+      document.getElementById("canvas").classList.add("hidden");
+      document.getElementById("saveBtn").classList.add("hidden");
+      document.getElementById("clearBtn").classList.add("hidden");
+      document.getElementById("signature-list").innerHTML = "";
+    });
+
+    // Save signature
     document.getElementById("saveBtn").addEventListener("click", () => {
-      const image = canvas.toDataURL("image/png");
+      const userData = JSON.parse(localStorage.getItem("user_data"));
+      if (!userData) {
+        alert("Please sign in with Twitter/X first.");
+        return;
+      }
+      const signature = canvas.toDataURL("image/png");
       const link = document.createElement("a");
       link.download = "signature.png";
-      link.href = image;
+      link.href = signature;
       link.click();
+
+      // Display the saved signature
+      const signatureList = document.getElementById("signature-list");
+      signatureList.innerHTML = "";
+      const div = document.createElement("div");
+      div.className = "signature-card";
+      div.innerHTML = `
+        <div class="flex items-center">
+          <img src="${userData.profile_image_url}" class="profile-pic mr-2" alt="Profile Picture">
+          <p class="font-semibold">${userData.username}</p>
+        </div>
+        <img src="${signature}" alt="Signature" class="max-w-full h-auto">
+        <p class="text-sm text-gray-500">${new Date().toLocaleString()}</p>
+      `;
+      signatureList.appendChild(div);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
     });
+
+    // Clear canvas
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    });
+
+    // Connect button
+    document.getElementById("connectBtn").addEventListener("click", connectTwitter);
+
+    // Initial setup
+    checkAuth();
   </script>
 </body>
 </html>
