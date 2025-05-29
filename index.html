@@ -29,6 +29,11 @@
       height: 48px;
       border-radius: 50%;
     }
+    .error-message {
+      color: red;
+      font-weight: bold;
+      margin-top: 1rem;
+    }
   </style>
 </head>
 <body class="flex flex-col items-center justify-center p-4">
@@ -53,17 +58,18 @@
         <img id="profilePic" class="profile-pic inline-block mr-2" alt="Profile Picture">
         <span id="username" class="font-semibold"></span>
       </div>
-      <canvas id="canvas" width="600" height="200" class="w-full mt-4"></canvas>
+      <div id="error" class="error-message hidden"></div>
+      <canvas id="canvas" width="600" height="200" class="w-full mt-4 hidden"></canvas>
       <div class="flex gap-4 mt-4">
         <button 
           id="saveBtn" 
-          class="bg-orange-500 text-white font-semibold py-2 px-4 rounded hover:bg-orange-600 transition"
+          class="bg-orange-500 text-white font-semibold py-2 px-4 rounded hover:bg-orange-600 transition hidden"
         >
           Save Signature
         </button>
         <button 
           id="clearBtn" 
-          class="bg-gray-500 text-white font-semibold py-2 px-4 rounded hover:bg-gray-600 transition"
+          class="bg-gray-500 text-white font-semibold py-2 px-4 rounded hover:bg-gray-600 transition hidden"
         >
           Clear
         </button>
@@ -179,47 +185,74 @@
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get("code");
       const state = urlParams.get("state");
+      const errorDiv = document.getElementById("error");
+
       if (code && state) {
-        const stateObj = JSON.parse(atob(state));
-        if (stateObj.csrf !== localStorage.getItem("csrf")) {
-          console.error("CSRF token mismatch");
-          return;
-        }
-        const codeVerifier = localStorage.getItem("code_verifier");
-        const response = await fetch(`/api/callback?code=${code}&code_verifier=${encodeURIComponent(codeVerifier)}`);
-        const data = await response.json();
-        if (data.access_token) {
-          localStorage.setItem("access_token", data.access_token);
-          const userResponse = await fetch("https://api.twitter.com/2/users/me?user.fields=profile_image_url", {
-            headers: { Authorization: `Bearer ${data.access_token}` }
-          });
-          const userData = await userResponse.json();
-          localStorage.setItem("user_data", JSON.stringify(userData.data));
-          document.getElementById("connectBtn").classList.add("hidden");
-          document.getElementById("logoutBtn").classList.remove("hidden");
-          document.getElementById("profile").classList.remove("hidden");
-          document.getElementById("profilePic").src = userData.data.profile_image_url;
-          document.getElementById("username").textContent = userData.data.username;
-          document.getElementById("canvas").classList.remove("hidden");
-          document.getElementById("saveBtn").classList.remove("hidden");
-          document.getElementById("clearBtn").classList.remove("hidden");
-          localStorage.removeItem("csrf");
-          localStorage.removeItem("code_verifier");
-          window.history.replaceState({}, document.title, window.location.pathname);
-        } else {
-          console.error("Token exchange failed:", data.error);
+        try {
+          const stateObj = JSON.parse(atob(state));
+          if (stateObj.csrf !== localStorage.getItem("csrf")) {
+            errorDiv.textContent = "Authentication failed: CSRF token mismatch";
+            errorDiv.classList.remove("hidden");
+            return;
+          }
+          const codeVerifier = localStorage.getItem("code_verifier");
+          if (!codeVerifier) {
+            errorDiv.textContent = "Authentication failed: Missing code verifier";
+            errorDiv.classList.remove("hidden");
+            return;
+          }
+
+          const response = await fetch(`/api/callback?code=${code}&code_verifier=${encodeURIComponent(codeVerifier)}`);
+          const data = await response.json();
+          if (data.access_token) {
+            localStorage.setItem("access_token", data.access_token);
+            const userResponse = await fetch("https://api.twitter.com/2/users/me?user.fields=profile_image_url", {
+              headers: { Authorization: `Bearer ${data.access_token}` }
+            });
+            if (!userResponse.ok) {
+              errorDiv.textContent = "Failed to fetch user data";
+              errorDiv.classList.remove("hidden");
+              return;
+            }
+            const userData = await userResponse.json();
+            if (!userData.data) {
+              errorDiv.textContent = "Invalid user data received";
+              errorDiv.classList.remove("hidden");
+              return;
+            }
+            localStorage.setItem("user_data", JSON.stringify(userData.data));
+            updateUI(userData.data);
+            localStorage.removeItem("csrf");
+            localStorage.removeItem("code_verifier");
+            window.history.replaceState({}, document.title, window.location.pathname);
+          } else {
+            errorDiv.textContent = `Token exchange failed: ${data.error || "Unknown error"}`;
+            errorDiv.classList.remove("hidden");
+          }
+        } catch (error) {
+          errorDiv.textContent = `Authentication error: ${error.message}`;
+          errorDiv.classList.remove("hidden");
+          console.error("Authentication error:", error);
         }
       } else if (localStorage.getItem("access_token") && localStorage.getItem("user_data")) {
         const userData = JSON.parse(localStorage.getItem("user_data"));
-        document.getElementById("connectBtn").classList.add("hidden");
-        document.getElementById("logoutBtn").classList.remove("hidden");
-        document.getElementById("profile").classList.remove("hidden");
-        document.getElementById("profilePic").src = userData.profile_image_url;
-        document.getElementById("username").textContent = userData.username;
-        document.getElementById("canvas").classList.remove("hidden");
-        document.getElementById("saveBtn").classList.remove("hidden");
-        document.getElementById("clearBtn").classList.remove("hidden");
+        updateUI(userData);
+      } else {
+        errorDiv.textContent = "Please sign in with Twitter/X to continue.";
+        errorDiv.classList.remove("hidden");
       }
+    }
+
+    function updateUI(userData) {
+      document.getElementById("connectBtn").classList.add("hidden");
+      document.getElementById("logoutBtn").classList.remove("hidden");
+      document.getElementById("profile").classList.remove("hidden");
+      document.getElementById("profilePic").src = userData.profile_image_url;
+      document.getElementById("username").textContent = userData.username;
+      document.getElementById("canvas").classList.remove("hidden");
+      document.getElementById("saveBtn").classList.remove("hidden");
+      document.getElementById("clearBtn").classList.remove("hidden");
+      document.getElementById("error").classList.add("hidden");
     }
 
     // Handle logout
@@ -233,13 +266,16 @@
       document.getElementById("saveBtn").classList.add("hidden");
       document.getElementById("clearBtn").classList.add("hidden");
       document.getElementById("signature-list").innerHTML = "";
+      document.getElementById("error").textContent = "Please sign in with Twitter/X to continue.";
+      document.getElementById("error").classList.remove("hidden");
     });
 
     // Save signature
     document.getElementById("saveBtn").addEventListener("click", () => {
       const userData = JSON.parse(localStorage.getItem("user_data"));
       if (!userData) {
-        alert("Please sign in with Twitter/X first.");
+        document.getElementById("error").textContent = "Please sign in with Twitter/X first.";
+        document.getElementById("error").classList.remove("hidden");
         return;
       }
       const signature = canvas.toDataURL("image/png");
