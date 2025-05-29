@@ -1,59 +1,80 @@
-// File: api/callback.js (Node.js / Express-style handler)
-
-import fetch from 'node-fetch';
+import fetch from "node-fetch";
 
 export default async function handler(req, res) {
-  const { code, state } = req.query;
-  const codeVerifier = req.cookies.code_verifier || req.headers['x-code-verifier'];
+  try {
+    // parse query params
+    const { searchParams } = new URL(req.url, `https://${req.headers.host}`);
+    const code = searchParams.get("code");
+    const stateEncoded = searchParams.get("state");
 
-  if (!code || !codeVerifier) {
-    return res.status(400).send("Missing code or code verifier");
-  }
-
-  const clientId = "UUY5SENHNllHejJZeU1vVlNlSjM6MTpjaQ";
-  const redirectUri = "https://sign-signature.vercel.app/api/callback";
-
-  // Exchange authorization code for access token
-  const tokenResponse = await fetch("https://api.twitter.com/2/oauth2/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      code,
-      redirect_uri: redirectUri,
-      client_id: clientId,
-      code_verifier: codeVerifier
-    })
-  });
-
-  const tokenData = await tokenResponse.json();
-
-  if (!tokenData.access_token) {
-    return res.status(500).json({ error: "Token exchange failed", detail: tokenData });
-  }
-
-  // Fetch user info
-  const userResponse = await fetch("https://api.twitter.com/2/users/me?user.fields=profile_image_url", {
-    headers: {
-      Authorization: `Bearer ${tokenData.access_token}`
+    if (!code || !stateEncoded) {
+      res.status(400).send("Missing code or state");
+      return;
     }
-  });
 
-  const userData = await userResponse.json();
+    // Decode state to get code_verifier and csrf
+    const stateStr = Buffer.from(stateEncoded, "base64").toString("utf-8");
+    const state = JSON.parse(stateStr);
+    const codeVerifier = state.codeVerifier;
+    const csrfFromState = state.csrf;
 
-  if (!userData.data) {
-    return res.status(500).json({ error: "Failed to get user data", detail: userData });
+    if (!codeVerifier) {
+      res.status(400).send("Missing code verifier");
+      return;
+    }
+
+    // Exchange authorization code for access token
+    const tokenResponse = await fetch("https://api.twitter.com/2/oauth2/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: new URLSearchParams({
+        client_id: process.env.TWITTER_CLIENT_ID,
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: "https://sign-signature.vercel.app/api/callback",
+        code_verifier: codeVerifier
+      })
+    });
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      res.status(500).send("Token exchange failed: " + errorText);
+      return;
+    }
+
+    const tokenJson = await tokenResponse.json();
+    const accessToken = tokenJson.access_token;
+
+    // Fetch user profile with access token
+    const userResponse = await fetch("https://api.twitter.com/2/users/me", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
+
+    if (!userResponse.ok) {
+      const errorText = await userResponse.text();
+      res.status(500).send("Failed to fetch user profile: " + errorText);
+      return;
+    }
+
+    const userJson = await userResponse.json();
+
+    const name = userJson.data.name;
+    const pfp = userJson.data.profile_image_url || "";
+
+    // Redirect back to your frontend with user info as URL params
+    const frontendUrl = new URL("https://sign-signature.vercel.app");
+    frontendUrl.searchParams.set("name", name);
+    frontendUrl.searchParams.set("pfp", pfp);
+
+    res.writeHead(302, {
+      Location: frontendUrl.toString()
+    });
+    res.end();
+  } catch (e) {
+    res.status(500).send("Server error: " + e.message);
   }
-
-  const { name, profile_image_url } = userData.data;
-
-  // Redirect with profile data as query string
-  const params = new URLSearchParams({
-    name,
-    pfp: profile_image_url
-  });
-
-  res.redirect(`https://sign-signature.vercel.app/?${params.toString()}`);
 }
