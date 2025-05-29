@@ -48,7 +48,8 @@ export default async function handler(req, res) {
     const accessToken = tokenJson.access_token;
 
     // Fetch user profile with access token
-    const userResponse = await fetch("https://api.twitter.com/2/users/me", {
+    // IMPORTANT: request profile_image_url explicitly via user.fields query param
+    const userResponse = await fetch("https://api.twitter.com/2/users/me?user.fields=profile_image_url", {
       headers: {
         Authorization: `Bearer ${accessToken}`
       }
