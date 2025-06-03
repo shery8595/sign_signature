@@ -7,6 +7,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Bubblegum font -->
   <link href="https://fonts.googleapis.com/css2?family=Bubblegum+Sans&display=swap" rel="stylesheet">
+  <!-- Add Supabase client library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body {
       margin: 0;
@@ -144,20 +146,22 @@
           <span id="username" class="font-semibold"></span>
         </div>
 
-        <canvas id="canvas" width="600" height="200" class="w-full mt-4 hidden"></canvas>
-        <div class="flex gap-4 mt-4">
-          <button 
-            id="saveBtn" 
-            class="bg-orange-500 text-white font-semibold py-2 px-4 rounded hover:bg-orange-600 transition hidden"
-          >
-            Save Signature
-          </button>
-          <button 
-            id="clearBtn" 
-            class="bg-gray-500 text-white font-semibold py-2 px-4 rounded hover:bg-gray-600 transition hidden"
-          >
-            Clear
-          </button>
+        <div id="signature-container" class="hidden">
+          <canvas id="canvas" width="600" height="200" class="w-full mt-4 border border-gray-300 rounded"></canvas>
+          <div class="flex gap-4 mt-4 justify-center">
+            <button 
+              id="saveBtn" 
+              class="bg-orange-500 text-white font-semibold py-2 px-4 rounded hover:bg-orange-600 transition"
+            >
+              Save Signature
+            </button>
+            <button 
+              id="clearBtn" 
+              class="bg-gray-500 text-white font-semibold py-2 px-4 rounded hover:bg-gray-600 transition"
+            >
+              Clear
+            </button>
+          </div>
         </div>
       </div>
 
@@ -169,6 +173,11 @@
   </div>
 
   <script>
+    // Initialize Supabase
+    const supabaseUrl = 'https://tzobvgqqbqkuuubosqmh.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR6b2J2Z3FxYnFrdXV1Ym9zcW1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3MTMyNzUsImV4cCI6MjA2NDI4OTI3NX0.MWY-CZ0XC1J9RIlCwA4tdNUISB3Rrk4kn5rJlBobXks';
+    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
     // Cloud animation
     const cloudCanvas = document.getElementById('cloudCanvas');
     const cloudCtx = cloudCanvas.getContext('2d');
@@ -236,7 +245,7 @@
     initClouds();
     animate();
 
-    // Original signature canvas code
+    // Signature canvas code
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     let drawing = false;
@@ -349,22 +358,92 @@
         document.getElementById("connectBtn").classList.add("hidden");
         document.getElementById("logoutBtn").classList.remove("hidden");
         document.getElementById("profile").classList.remove("hidden");
-
-        document.getElementById("canvas").classList.remove("hidden");
-        document.getElementById("saveBtn").classList.remove("hidden");
-        document.getElementById("clearBtn").classList.remove("hidden");
+        document.getElementById("signature-container").classList.remove("hidden");
 
         if (pfp) document.getElementById("profilePic").src = decodeURIComponent(pfp);
         if (name) document.getElementById("username").textContent = decodeURIComponent(name);
+        
+        // Load signatures when user is authenticated
+        loadSignatures();
       }
     }
+
+    // Save signature to Supabase
+    async function saveSignature() {
+      const username = document.getElementById("username").textContent;
+      const profilePic = document.getElementById("profilePic").src;
+      const signatureData = canvas.toDataURL(); // Get signature as base64
+
+      const { data, error } = await supabase
+        .from('signatures')
+        .insert([
+          { 
+            user_name: username,
+            profile_plc: profilePic,
+            signature_image: signatureData
+          }
+        ])
+        .select();
+
+      if (error) {
+        console.error('Error saving signature:', error);
+        alert('Failed to save signature. Please try again.');
+      } else {
+        console.log('Signature saved:', data);
+        loadSignatures(); // Refresh the signature list
+        alert('Signature saved successfully!');
+        // Clear the canvas after saving
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+
+    // Load signatures from Supabase
+    async function loadSignatures() {
+      const { data: signatures, error } = await supabase
+        .from('signatures')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading signatures:', error);
+        return;
+      }
+
+      const signatureList = document.getElementById('signature-list');
+      signatureList.innerHTML = '';
+
+      signatures.forEach(signature => {
+        const signatureCard = document.createElement('div');
+        signatureCard.className = 'signature-card';
+        signatureCard.innerHTML = `
+          <div class="flex items-center mb-2">
+            <img src="${signature.profile_plc}" class="profile-pic mr-2" alt="Profile">
+            <span class="font-semibold">${signature.user_name}</span>
+          </div>
+          <img src="${signature.signature_image}" class="w-full" alt="Signature">
+          <div class="text-sm text-gray-500 mt-2">
+            ${new Date(signature.created_at).toLocaleString()}
+          </div>
+        `;
+        signatureList.appendChild(signatureCard);
+      });
+    }
+
+    // Clear canvas
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    });
+
+    // Save button event listener
+    document.getElementById("saveBtn").addEventListener("click", saveSignature);
 
     // Run on page load
     document.getElementById("connectBtn").addEventListener("click", connectTwitter);
     window.onload = () => {
       handleQueryParams();
+      // Load signatures even if not authenticated (public view)
+      loadSignatures();
     };
   </script>
 </body>
 </html>
- 
