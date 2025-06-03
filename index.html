@@ -324,23 +324,44 @@
 
     // Save signature to Firestore
     document.getElementById("saveBtn").addEventListener("click", async () => {
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      
+      // Check if there's any drawing on the canvas
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const hasDrawing = imageData.data.some(pixel => pixel !== 0);
+      
+      if (!hasDrawing) {
+        alert("Please draw a signature before saving!");
+        return;
+      }
+
       const signatureData = canvas.toDataURL("image/png");
       const username = document.getElementById("username").textContent;
       const profilePic = document.getElementById("profilePic").src;
 
       try {
+        const saveBtn = document.getElementById("saveBtn");
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Saving...";
+
         await addDoc(collection(window.db, "signatures"), {
           username: username,
           profilePic: profilePic,
           signature: signatureData,
           timestamp: new Date()
         });
+
         alert("Signature saved successfully!");
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         loadSignatures(); // Refresh the signature list
       } catch (error) {
         console.error("Error saving signature: ", error);
         alert("Failed to save signature. Please try again.");
+      } finally {
+        const saveBtn = document.getElementById("saveBtn");
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Save Signature";
       }
     });
 
@@ -427,11 +448,18 @@
       const pfp = params.get("pfp");
 
       if (name || pfp) {
+        // Show authenticated UI
         document.getElementById("connectBtn").classList.add("hidden");
         document.getElementById("logoutBtn").classList.remove("hidden");
         document.getElementById("profile").classList.remove("hidden");
 
-        document.getElementById("canvas").classList.remove("hidden");
+        // Show signature drawing UI
+        const canvas = document.getElementById("canvas");
+        canvas.classList.remove("hidden");
+        canvas.style.display = "block"; // Ensure canvas is visible
+        canvas.style.border = "2px solid #f97316"; // Add border to make it visible
+        canvas.style.backgroundColor = "white"; // Add white background
+        
         document.getElementById("saveBtn").classList.remove("hidden");
         document.getElementById("clearBtn").classList.remove("hidden");
 
