@@ -1,3 +1,11 @@
+add supabase and dont change any preexisting code logic code
+url https://tzobvgqqbqkuuubosqmh.supabase.co
+anon public eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR6b2J2Z3FxYnFrdXV1Ym9zcW1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3MTMyNzUsImV4cCI6MjA2NDI4OTI3NX0.MWY-CZ0XC1J9RIlCwA4tdNUISB3Rrk4kn5rJlBobXks
+
+
+
+Code
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,29 +13,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Sign Signature</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Firebase SDK -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, getDocs, orderBy, query } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
-    
-    // Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyADd3GsMnoZuoltCFFXQWms4bzEVTNVn3U",
-      authDomain: "signature-app-878a8.firebaseapp.com",
-      projectId: "signature-app-878a8",
-      storageBucket: "signature-app-878a8.firebasestorage.app",
-      messagingSenderId: "524854956900",
-      appId: "1:524854956900:web:e926d9ea12f44af124a071",
-      measurementId: "G-8SCTEYWL17"
-    };
-
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    // Make db available globally
-    window.db = db;
-  </script>
   <!-- Bubblegum font -->
   <link href="https://fonts.googleapis.com/css2?family=Bubblegum+Sans&display=swap" rel="stylesheet">
   <style>
@@ -116,11 +101,6 @@
       width: 48px;
       height: 48px;
       border-radius: 50%;
-    }
-
-    .signature-img {
-      max-width: 100%;
-      height: auto;
     }
 
     @keyframes float {
@@ -317,80 +297,6 @@
       drawing = false;
     }
 
-    // Clear canvas
-    document.getElementById("clearBtn").addEventListener("click", () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    });
-
-    // Save signature to Firestore
-    document.getElementById("saveBtn").addEventListener("click", async () => {
-      const canvas = document.getElementById("canvas");
-      const ctx = canvas.getContext("2d");
-      
-      // Check if there's any drawing on the canvas
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const hasDrawing = imageData.data.some(pixel => pixel !== 0);
-      
-      if (!hasDrawing) {
-        alert("Please draw a signature before saving!");
-        return;
-      }
-
-      const signatureData = canvas.toDataURL("image/png");
-      const username = document.getElementById("username").textContent;
-      const profilePic = document.getElementById("profilePic").src;
-
-      try {
-        const saveBtn = document.getElementById("saveBtn");
-        saveBtn.disabled = true;
-        saveBtn.textContent = "Saving...";
-
-        await addDoc(collection(window.db, "signatures"), {
-          username: username,
-          profilePic: profilePic,
-          signature: signatureData,
-          timestamp: new Date()
-        });
-
-        alert("Signature saved successfully!");
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        loadSignatures(); // Refresh the signature list
-      } catch (error) {
-        console.error("Error saving signature: ", error);
-        alert("Failed to save signature. Please try again.");
-      } finally {
-        const saveBtn = document.getElementById("saveBtn");
-        saveBtn.disabled = false;
-        saveBtn.textContent = "Save Signature";
-      }
-    });
-
-    // Load signatures from Firestore
-    async function loadSignatures() {
-      const signatureList = document.getElementById("signature-list");
-      signatureList.innerHTML = ""; // Clear existing signatures
-
-      try {
-        const q = query(collection(window.db, "signatures"), orderBy("timestamp", "desc"));
-        const querySnapshot = await getDocs(q);
-        querySnapshot.forEach(doc => {
-          const data = doc.data();
-          const card = document.createElement("div");
-          card.className = "signature-card";
-          card.innerHTML = `
-            <div class="flex items-center mb-2">
-              <img src="${data.profilePic}" class="profile-pic mr-2" alt="Profile Picture">
-              <span class="font-semibold">${data.username}</span>
-            </div>
-            <img src="${data.signature}" class="signature-img" alt="Signature">
-          `;
-          signatureList.appendChild(card);
-        });
-      } catch (error) {
-        console.error("Error loading signatures: ", error);
-      }
-    }
-
     // Twitter OAuth
     const clientId = "UUY5SENHNllHejJZeU1vVlNlSjM6MTpjaQ";
     const redirectUri = "https://sign-signature.vercel.app/api/callback";
@@ -448,26 +354,16 @@
       const pfp = params.get("pfp");
 
       if (name || pfp) {
-        // Show authenticated UI
         document.getElementById("connectBtn").classList.add("hidden");
         document.getElementById("logoutBtn").classList.remove("hidden");
         document.getElementById("profile").classList.remove("hidden");
 
-        // Show signature drawing UI
-        const canvas = document.getElementById("canvas");
-        canvas.classList.remove("hidden");
-        canvas.style.display = "block"; // Ensure canvas is visible
-        canvas.style.border = "2px solid #f97316"; // Add border to make it visible
-        canvas.style.backgroundColor = "white"; // Add white background
-        
+        document.getElementById("canvas").classList.remove("hidden");
         document.getElementById("saveBtn").classList.remove("hidden");
         document.getElementById("clearBtn").classList.remove("hidden");
 
         if (pfp) document.getElementById("profilePic").src = decodeURIComponent(pfp);
         if (name) document.getElementById("username").textContent = decodeURIComponent(name);
-
-        // Load signatures after user is authenticated
-        loadSignatures();
       }
     }
 
@@ -479,3 +375,4 @@
   </script>
 </body>
 </html>
+ 
