@@ -112,52 +112,120 @@
   </div>
 
   <script>
-    // Cloud animation
+    // Cloud animation - Updated version
     const cloudCanvas = document.getElementById('cloudCanvas');
     const cloudCtx = cloudCanvas.getContext('2d');
-    let clouds = [], cloudImages = [new Image(), new Image(), new Image()];
-    cloudImages[0].src = `clouds/cloud1.png`;
-    cloudImages[1].src = `clouds/cloud2.png`;
-    cloudImages[2].src = `clouds/cloud3.png`;
+    
+    // Cloud configuration
+    const cloudConfig = [
+      { name: "cloud1", path: "clouds/cloud1.png", width: 200, height: 120 },
+      { name: "cloud2", path: "clouds/cloud2.png", width: 180, height: 100 },
+      { name: "cloud3", path: "clouds/cloud3.png", width: 220, height: 110 }
+    ];
+
+    // Load cloud images
+    async function loadCloudImages() {
+      const loadPromises = cloudConfig.map(async (cloud) => {
+        const img = new Image();
+        img.src = cloud.path;
+        await new Promise((resolve) => {
+          img.onload = resolve;
+          img.onerror = () => {
+            console.error(`Failed to load cloud image: ${cloud.path}`);
+            resolve();
+          };
+        });
+        return { ...cloud, img: img };
+      });
+      return Promise.all(loadPromises);
+    }
+
+    class Cloud {
+      constructor(x, y, config) {
+        this.x = x;
+        this.y = y;
+        this.config = config;
+        this.speed = Math.random() * 0.5 + 0.2;
+        this.scale = 0.5 + Math.random() * 0.5;
+        this.verticalSpeed = (Math.random() - 0.5) * 0.1;
+      }
+
+      draw() {
+        if (this.config.img) {
+          const width = this.config.width * this.scale;
+          const height = this.config.height * this.scale;
+          cloudCtx.drawImage(this.config.img, this.x, this.y, width, height);
+        } else {
+          // Fallback if image fails to load
+          cloudCtx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+          cloudCtx.beginPath();
+          const centerX = this.x + (this.config.width * this.scale)/2;
+          const centerY = this.y + (this.config.height * this.scale)/2;
+          const cloudWidth = this.config.width * this.scale;
+          const cloudHeight = this.config.height * this.scale * 0.6;
+          
+          cloudCtx.arc(centerX, centerY, cloudHeight/2, 0, Math.PI * 2);
+          cloudCtx.arc(centerX - cloudWidth/3, centerY - cloudHeight/4, cloudHeight/2.5, 0, Math.PI * 2);
+          cloudCtx.arc(centerX + cloudWidth/3, centerY - cloudHeight/4, cloudHeight/3, 0, Math.PI * 2);
+          cloudCtx.arc(centerX - cloudWidth/4, centerY + cloudHeight/4, cloudHeight/3, 0, Math.PI * 2);
+          cloudCtx.arc(centerX + cloudWidth/4, centerY + cloudHeight/4, cloudHeight/4, 0, Math.PI * 2);
+          cloudCtx.fill();
+        }
+      }
+
+      update() {
+        this.x += this.speed;
+        this.y += this.verticalSpeed;
+        
+        if (this.x - (this.config.width * this.scale) > cloudCanvas.width) {
+          this.x = -(this.config.width * this.scale);
+          this.y = Math.random() * cloudCanvas.height;
+        }
+        
+        if (this.y < 0 || this.y + (this.config.height * this.scale) > cloudCanvas.height) {
+          this.verticalSpeed *= -1;
+        }
+      }
+    }
+
+    let clouds = [];
 
     function resizeCanvas() {
       cloudCanvas.width = window.innerWidth;
       cloudCanvas.height = window.innerHeight;
     }
 
-    class Cloud {
-      constructor() {
-        this.x = Math.random() * cloudCanvas.width;
-        this.y = Math.random() * cloudCanvas.height;
-        this.width = 200 + Math.random() * 100;
-        this.height = this.width * 0.6;
-        this.speed = 0.2 + Math.random() * 0.3;
-        this.image = cloudImages[Math.floor(Math.random() * cloudImages.length)];
-      }
-      draw() { cloudCtx.drawImage(this.image, this.x, this.y, this.width, this.height); }
-      update() {
-        this.x += this.speed;
-        if (this.x > cloudCanvas.width + this.width) {
-          this.x = -this.width;
-          this.y = Math.random() * cloudCanvas.height;
-          this.image = cloudImages[Math.floor(Math.random() * cloudImages.length)];
-        }
-      }
-    }
-
-    function initClouds() {
-      clouds = [];
-      for (let i = 0; i < 10; i++) clouds.push(new Cloud());
+    async function initClouds() {
+      const loadedClouds = await loadCloudImages();
+      clouds = Array.from({ length: 15 }, () => {
+        const config = loadedClouds[Math.floor(Math.random() * loadedClouds.length)];
+        return new Cloud(
+          Math.random() * cloudCanvas.width,
+          Math.random() * cloudCanvas.height,
+          config
+        );
+      });
     }
 
     function animate() {
       cloudCtx.clearRect(0, 0, cloudCanvas.width, cloudCanvas.height);
-      clouds.forEach(c => { c.update(); c.draw(); });
+      clouds.forEach(c => { 
+        c.update(); 
+        c.draw(); 
+      });
       requestAnimationFrame(animate);
     }
 
-    window.addEventListener('resize', () => { resizeCanvas(); initClouds(); });
-    resizeCanvas(); initClouds(); animate();
+    window.addEventListener('resize', () => { 
+      resizeCanvas(); 
+      initClouds(); 
+    });
+
+    // Initialize everything
+    resizeCanvas();
+    initClouds().then(() => {
+      animate();
+    });
 
     // Drawing
     const canvas = document.getElementById("canvas");
