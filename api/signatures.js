@@ -10,7 +10,34 @@ try {
       credential: cert({
         projectId: "signature-app-878a8",
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+        privateKey: `-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC6AMLmWkOWr8xg
+2D5S+HI1zDbP+Z9a2ECiudcmTDacLG96dXdoTwV4kH3M18hnaNkYSAnuEybP+VDz
+JM6fRC0TvtUl7WuUFCBNepKTTEqacNxhmWaB2sE0jNYFnb5yoO5obwJ93unvZoMS
+tpSp88El2X9gdE1ngXVp0n1idDBM5fw8RwPzFtE3fwjUQ8+iwJBg+w6q0kQTagyH
+Xvhl5JEkcDdoT9IPB1Sr8OSfypJZVmItfuStuezvq1ZCR3mIVnwBQnAY5PEUkba5
+AGeHHsTuLTmCvwntmfMbRlQP9vttQcJzsbOLSCsyMQTUDb2b55diqifm0N18ZpQX
+vT+IzWPZAgMBAAECggEAAdecsCphs/4R89czp5+4hd1IoUuzVXOB3fq7bX1gwLA7
+lG0FNz4p62h6KBhVCE0q2Hye+I6UM+6GUjouZh5tpREe5e0rKebL7eiFlIbmnQ8t
+tGiQC6Y06d/UbAhrCMVpekhRln/DaMpNO9cdTTrR69C/j1JN9/Usym6gX+RcHBun
+E5mBoDzric6vimAGDsc7YgQxdnOQdAIT8ir8efi/yE/bFgL09bGSIFJpJ49QO83o
+x5IFEHhJIv6T7HYf+qROUQTHlHR+y4sKePnF/vkJL69BODxk3olVAPQ5B8GX3DwP
+Ef2TgXLjMI2WjM7zykCmnQYLHims+vnpM3sK1M51GQKBgQD2H8sc9XW3rGVTJPR9
+I3eAh7LZxDxPBkid1yimkTpou+Ux37o6XIYhujYHO/kKUOjsmnjWeZqizEOXpM5A
+pQ/UFlLK3Zd2Nn3sJmwlpYUGCNCyYR2ebojQev8gZXieAVluwb76isrsygogp1ol
+x+gYl0HG8u+yGQJ+AsdxexvBTQKBgQDBd2XssSN0rTS06VbNgeR3wIYOO5EQoVS4
+sprzeCFSYxXZN3r7f39qmIsS4ZA4/V4frwaYDDq8mUiKgByQQkBmyzqAa9KbY8MX
+q3J4F4p1nBtLL/skYBtLc4EQuyrJZSfmqmWcUdrlkt+VfqfDDTVNyByjmjycrTmA
+N1WE6fdmvQKBgQC7myJ0sXmIhuU5Skr+dCFsHIOs0JLz3aNOhSncRYkTOl4K9TF7
+uPkZDlqOix1ayq+xYlHHkivX+gFvvtTkm60ECfwT3HLOTd0QO31l+NP79I432iT8
+ld69o3ODGzWkovyrmw1a5p6lfZ/YohfqAoYc8HbYEme5Bq1Kpg2mp6NRZQKBgFGF
+HRaaIYWFgmMEu4XGyN1I63PN17d5M3jMEYyrvua3R7qKrTCSLb9d3aQsFZhd8q5J
+Eu84n/teX3m0t9R1hiuKUPFR/aFqbQdpP8eoq7gY+ks5QYq3UGj/l4/UPhg0npaM
+kFpJB4Ka28ljYA9JXn+S5bZuREIEn+kN5+QkrhHFAoGAIH1cQmkA8lCVoxf6/U3r
+a3ZkjJmxm26dXuS/vTVT95Cl0FHBIltPb55lqsUCmVNfeQONZKo6KGY2M7HdmtJb
+52g7sM2bRGUA6IuvtCWi7r7SUVCqwQBJSQBEhz2yBtyLbYzSeSwnLnQkCd1y+yfy
+HcBYNhOlhbl+WjMnS2xFDiA=
+-----END PRIVATE KEY-----`
       })
     });
   }
