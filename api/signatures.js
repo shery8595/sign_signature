@@ -1,25 +1,25 @@
 // /api/signatures.js
-import { initializeApp, getApps } from "firebase/app";
-import { getFirestore, collection, getDocs } from "firebase/firestore";
-import { firebaseConfig } from "./firebase-config";
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 
-let app;
+// Initialize Firebase Admin
 let db;
-
 try {
+  console.log('Initializing Firebase Admin...');
   if (!getApps().length) {
-    console.log('Initializing Firebase app with config:', firebaseConfig);
-    app = initializeApp(firebaseConfig);
-  } else {
-    console.log('Using existing Firebase app:', getApps()[0].name);
-    app = getApps()[0];
+    initializeApp({
+      credential: cert({
+        projectId: "signature-app-878a8",
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+      })
+    });
   }
-  console.log('Firebase app initialized successfully');
-  db = getFirestore(app);
-  console.log('Firestore initialized successfully');
+  db = getFirestore();
+  console.log('Firebase Admin initialized successfully');
 } catch (error) {
-  console.error('Firebase initialization error:', error.message, error.code);
-  throw new Error(`Failed to initialize Firebase: ${error.message} (Code: ${error.code})`);
+  console.error('Firebase Admin initialization error:', error);
+  throw new Error('Failed to initialize Firebase Admin: ' + error.message);
 }
 
 export default async function handler(req, res) {
@@ -28,12 +28,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log('Fetching signatures from Firestore...');
-    const signaturesCollection = collection(db, "signatures");
-    console.log('Querying signatures collection...');
-    const snapshot = await getDocs(signaturesCollection);
+    console.log('Attempting to fetch signatures...');
+    const signaturesCollection = db.collection("signatures");
+    console.log('Collection reference created');
     
-    console.log('Snapshot retrieved, empty:', snapshot.empty);
+    const snapshot = await signaturesCollection.get();
+    console.log('Snapshot retrieved');
+    
     if (snapshot.empty) {
       console.log('No signatures found in the database');
       return res.status(200).json([]);
@@ -44,15 +45,21 @@ export default async function handler(req, res) {
       ...doc.data()
     }));
     
-    console.log(`Found ${data.length} signatures`);
+    console.log(`Successfully retrieved ${data.length} signatures`);
     return res.status(200).json(data);
   } catch (err) {
-    console.error('Error fetching signatures:', err.message, err.code, err.stack);
+    console.error('Detailed error in signatures endpoint:', {
+      message: err.message,
+      stack: err.stack,
+      code: err.code,
+      name: err.name
+    });
+    
     return res.status(500).json({ 
       error: "Failed to fetch signatures", 
       details: err.message,
-      code: err.code || 'UNKNOWN',
-      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+      code: err.code,
+      name: err.name
     });
   }
 }
