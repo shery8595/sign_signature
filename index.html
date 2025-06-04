@@ -236,27 +236,47 @@
     });
 
     document.getElementById("saveBtn").addEventListener("click", async () => {
-      const dataURL = canvas.toDataURL("image/png");
-      const name = document.getElementById("username").textContent;
-      const pfp = document.getElementById("profilePic").src;
-      const res = await fetch("/api/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, pfp, signature: dataURL })
-      });
-      if (!res.ok) {
-        let errorMsg = "Failed to save signature";
-        const contentType = res.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          const data = await res.json();
-          errorMsg = data.message || errorMsg;
-        } else {
-          const text = await res.text();
-          if (text) errorMsg = text;
+      try {
+        const dataURL = canvas.toDataURL("image/png");
+        const name = document.getElementById("username").textContent;
+        const pfp = document.getElementById("profilePic").src;
+        
+        // Show loading state
+        const saveBtn = document.getElementById("saveBtn");
+        const originalText = saveBtn.textContent;
+        saveBtn.textContent = "Saving...";
+        saveBtn.disabled = true;
+        
+        const res = await fetch("/api/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, pfp, signature: dataURL })
+        });
+        
+        if (!res.ok) {
+          let errorMsg = "Failed to save signature";
+          try {
+            const data = await res.json();
+            errorMsg = data.message || errorMsg;
+          } catch {
+            const text = await res.text();
+            if (text) errorMsg = text;
+          }
+          throw new Error(errorMsg);
         }
-        throw new Error(errorMsg);
+        
+        // Show success message
+        alert("Signature saved successfully!");
+        await loadSignatures();
+      } catch (error) {
+        console.error("Save error:", error);
+        alert("Failed to save signature: " + error.message);
+      } finally {
+        // Reset button state
+        const saveBtn = document.getElementById("saveBtn");
+        saveBtn.textContent = "Save Signature";
+        saveBtn.disabled = false;
       }
-      loadSignatures();
     });
 
     async function loadSignatures() {
