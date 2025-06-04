@@ -254,20 +254,8 @@
         });
         
         if (!res.ok) {
-          const errorText = await res.text();
-          let errorMsg = "Failed to save signature";
-          try {
-            // Only try to parse as JSON if it looks like JSON
-            if (errorText.trim().startsWith("{") || errorText.trim().startsWith("[")) {
-              const data = JSON.parse(errorText);
-              errorMsg = data.message || errorMsg;
-            } else {
-              errorMsg = errorText;
-            }
-          } catch {
-            if (errorText) errorMsg = errorText;
-          }
-          throw new Error(errorMsg);
+          alert("Failed to save signature. Please try again later.");
+          throw new Error("Failed to save signature");
         }
         
         // Show success message
