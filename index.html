@@ -116,9 +116,9 @@
     const cloudCanvas = document.getElementById('cloudCanvas');
     const cloudCtx = cloudCanvas.getContext('2d');
     let clouds = [], cloudImages = [new Image(), new Image(), new Image()];
-    cloudImages[0].src = './clouds/cloud1.png';
-    cloudImages[1].src = './clouds/cloud2.png';
-    cloudImages[2].src = './clouds/cloud3.png';
+    cloudImages[0].src = `clouds/cloud1.png`;
+    cloudImages[1].src = `clouds/cloud2.png`;
+    cloudImages[2].src = `clouds/cloud3.png`;
 
     function resizeCanvas() {
       cloudCanvas.width = window.innerWidth;
