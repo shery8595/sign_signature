@@ -254,8 +254,15 @@
         });
         
         if (!res.ok) {
-          const error = await res.json();
-          throw new Error(error.message || "Failed to save signature");
+          let errorMsg = "Failed to save signature";
+          try {
+            const data = await res.json();
+            errorMsg = data.message || errorMsg;
+          } catch {
+            const text = await res.text();
+            if (text) errorMsg = text;
+          }
+          throw new Error(errorMsg);
         }
         
         // Show success message
