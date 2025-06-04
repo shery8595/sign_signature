@@ -1,5 +1,4 @@
-// /api/signatures.js
-import { initializeApp, cert } from 'firebase-admin/app';
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
 // Initialize Firebase Admin
@@ -31,20 +30,20 @@ export default async function handler(req, res) {
     console.log('Attempting to fetch signatures...');
     const signaturesCollection = db.collection("signatures");
     console.log('Collection reference created');
-    
+
     const snapshot = await signaturesCollection.get();
     console.log('Snapshot retrieved');
-    
+
     if (snapshot.empty) {
       console.log('No signatures found in the database');
       return res.status(200).json([]);
     }
-    
+
     const data = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
-    
+
     console.log(`Successfully retrieved ${data.length} signatures`);
     return res.status(200).json(data);
   } catch (err) {
@@ -54,7 +53,7 @@ export default async function handler(req, res) {
       code: err.code,
       name: err.name
     });
-    
+
     return res.status(500).json({ 
       error: "Failed to fetch signatures", 
       details: err.message,
