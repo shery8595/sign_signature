@@ -257,8 +257,13 @@
           const errorText = await res.text();
           let errorMsg = "Failed to save signature";
           try {
-            const data = JSON.parse(errorText);
-            errorMsg = data.message || errorMsg;
+            // Only try to parse as JSON if it looks like JSON
+            if (errorText.trim().startsWith("{") || errorText.trim().startsWith("[")) {
+              const data = JSON.parse(errorText);
+              errorMsg = data.message || errorMsg;
+            } else {
+              errorMsg = errorText;
+            }
           } catch {
             if (errorText) errorMsg = errorText;
           }
