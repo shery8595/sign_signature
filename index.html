@@ -79,6 +79,25 @@
       height: 48px;
       border-radius: 50%;
     }
+    
+    .auth-choice {
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .auth-choice:hover {
+      transform: scale(1.02);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .auth-choice.active {
+      background: white;
+      border: 2px solid #ff8c00;
+    }
   </style>
 </head>
 <body>
@@ -87,15 +106,36 @@
   <div class="subtitle-container"><p class="subtitle">Be Your Best Self</p></div>
 
   <div class="main-container max-w-2xl mx-auto mt-[60vh] text-center z-10 relative">
-    <p class="text-lg text-white mb-8">Sign in with Twitter/X to draw your signature!</p>
+    <p class="text-lg text-white mb-8">Choose how you want to sign:</p>
 
     <div id="auth-section" class="bg-white rounded-lg shadow-lg p-6 mb-8">
-      <button id="connectBtn" class="bg-blue-500 text-white py-2 px-4 rounded">Connect Twitter/X</button>
-      <button id="logoutBtn" class="hidden bg-gray-500 text-white py-2 px-4 rounded">Sign Out</button>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div id="twitterChoice" class="auth-choice active" onclick="selectAuthMethod('twitter')">
+          <h3 class="font-bold text-lg mb-2">Sign with Twitter/X</h3>
+          <p class="text-sm">Connect your Twitter/X account to sign</p>
+        </div>
+        <div id="normalChoice" class="auth-choice" onclick="selectAuthMethod('normal')">
+          <h3 class="font-bold text-lg mb-2">Sign Normally</h3>
+          <p class="text-sm">Enter your name manually</p>
+        </div>
+      </div>
 
-      <div id="profile" class="hidden mt-4">
-        <img id="profilePic" class="profile-pic inline-block mr-2" />
-        <span id="username" class="font-semibold"></span>
+      <div id="twitterAuth" class="mb-4">
+        <button id="connectBtn" class="bg-blue-500 text-white py-2 px-4 rounded">Connect Twitter/X</button>
+        <button id="logoutBtn" class="hidden bg-gray-500 text-white py-2 px-4 rounded">Sign Out</button>
+
+        <div id="profile" class="hidden mt-4">
+          <img id="profilePic" class="profile-pic inline-block mr-2" />
+          <span id="username" class="font-semibold"></span>
+        </div>
+      </div>
+
+      <div id="normalAuth" class="hidden mb-4">
+        <div class="mb-4">
+          <label for="nameInput" class="block text-left mb-2 font-medium">Your Name:</label>
+          <input type="text" id="nameInput" class="w-full p-2 border rounded" placeholder="Enter your name">
+        </div>
+        <button id="useNameBtn" class="bg-orange-500 text-white py-2 px-4 rounded">Use This Name</button>
       </div>
 
       <canvas id="canvas" width="600" height="200" class="w-full mt-4 hidden border border-gray-300 rounded bg-white"></canvas>
@@ -292,11 +332,51 @@
         .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
 
+    // Auth method selection
+    let currentAuthMethod = 'twitter';
+    
+    function selectAuthMethod(method) {
+      currentAuthMethod = method;
+      
+      // Update UI
+      document.getElementById('twitterChoice').classList.toggle('active', method === 'twitter');
+      document.getElementById('normalChoice').classList.toggle('active', method === 'normal');
+      
+      document.getElementById('twitterAuth').classList.toggle('hidden', method !== 'twitter');
+      document.getElementById('normalAuth').classList.toggle('hidden', method !== 'normal');
+      
+      // Reset signature area if switching methods
+      if (method === 'normal') {
+        document.getElementById("canvas").classList.add("hidden");
+        document.getElementById("saveBtn").classList.add("hidden");
+        document.getElementById("clearBtn").classList.add("hidden");
+        document.getElementById("profile").classList.add("hidden");
+      }
+    }
+
     // Auth handlers
     document.getElementById("connectBtn").addEventListener("click", connectTwitter);
     document.getElementById("logoutBtn").addEventListener("click", () => {
       localStorage.clear();
       window.location.href = "/";
+    });
+
+    document.getElementById("useNameBtn").addEventListener("click", () => {
+      const name = document.getElementById("nameInput").value.trim();
+      if (!name) {
+        alert("Please enter your name");
+        return;
+      }
+      
+      // Show signature area
+      document.getElementById("canvas").classList.remove("hidden");
+      document.getElementById("saveBtn").classList.remove("hidden");
+      document.getElementById("clearBtn").classList.remove("hidden");
+      
+      // Set a default profile picture for normal signers
+      document.getElementById("profile").classList.remove("hidden");
+      document.getElementById("username").textContent = name;
+      document.getElementById("profilePic").src = "https://ui-avatars.com/api/?name=" + encodeURIComponent(name) + "&background=ff8c00&color=fff";
     });
 
     document.getElementById("clearBtn").addEventListener("click", () => {
@@ -306,8 +386,20 @@
     document.getElementById("saveBtn").addEventListener("click", async () => {
       try {
         const dataURL = canvas.toDataURL("image/png");
-        const name = document.getElementById("username").textContent;
-        const pfp = document.getElementById("profilePic").src;
+        let name, pfp;
+        
+        if (currentAuthMethod === 'twitter') {
+          name = document.getElementById("username").textContent;
+          pfp = document.getElementById("profilePic").src;
+        } else {
+          name = document.getElementById("nameInput").value.trim();
+          pfp = "https://ui-avatars.com/api/?name=" + encodeURIComponent(name) + "&background=ff8c00&color=fff";
+        }
+        
+        if (!name) {
+          alert("Please enter your name or connect with Twitter/X");
+          return;
+        }
         
         // Show loading state
         const saveBtn = document.getElementById("saveBtn");
@@ -375,6 +467,7 @@
       const name = params.get("name");
       const pfp = params.get("pfp");
       if (name && pfp) {
+        selectAuthMethod('twitter');
         document.getElementById("connectBtn").classList.add("hidden");
         document.getElementById("logoutBtn").classList.remove("hidden");
         document.getElementById("profile").classList.remove("hidden");
