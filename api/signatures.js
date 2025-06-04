@@ -12,10 +12,13 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log('Fetching signatures from Firestore...');
     const snapshot = await getDocs(collection(db, "signatures"));
     const data = snapshot.docs.map(doc => doc.data());
+    console.log('Found signatures:', data);
     return res.status(200).json(data);
   } catch (err) {
+    console.error('Error fetching signatures:', err);
     return res.status(500).json({ error: "Failed to fetch signatures", details: err.message });
   }
 }
