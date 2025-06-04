@@ -273,22 +273,33 @@
     });
 
     async function loadSignatures() {
-      const res = await fetch("/api/signatures");
-      const data = await res.json();
-      const list = document.getElementById("signature-list");
-      list.innerHTML = "";
-      data.forEach(sig => {
-        const div = document.createElement("div");
-        div.className = "signature-card flex items-center space-x-4";
-        div.innerHTML = `
-          <img src="${sig.pfp}" class="profile-pic" />
-          <div>
-            <p class="font-bold">${sig.name}</p>
-            <img src="${sig.signature}" class="mt-2 max-w-xs border rounded" />
-          </div>
-        `;
-        list.appendChild(div);
-      });
+      try {
+        console.log('Fetching signatures...');
+        const res = await fetch("/api/signatures");
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        const data = await res.json();
+        console.log('Received signatures:', data);
+        const list = document.getElementById("signature-list");
+        list.innerHTML = "";
+        data.forEach(sig => {
+          const div = document.createElement("div");
+          div.className = "signature-card flex items-center space-x-4";
+          div.innerHTML = `
+            <img src="${sig.pfp}" class="profile-pic" />
+            <div>
+              <p class="font-bold">${sig.name}</p>
+              <img src="${sig.signature}" class="mt-2 max-w-xs border rounded" />
+            </div>
+          `;
+          list.appendChild(div);
+        });
+      } catch (error) {
+        console.error('Error loading signatures:', error);
+        const list = document.getElementById("signature-list");
+        list.innerHTML = `<div class="text-red-500">Error loading signatures: ${error.message}</div>`;
+      }
     }
 
     function handleQueryParams() {
